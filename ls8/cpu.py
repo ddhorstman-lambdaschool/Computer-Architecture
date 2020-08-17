@@ -73,19 +73,19 @@ class CPU:
 
         # Microcode
         def HLT():
-            return False
+            return True
 
         def LDI():
             addr = self.ram[self.pc + 1]
             val = self.ram[self.pc + 2]
             self.reg[addr] = val
-            return 3
+            self.pc += 3
 
         def PRN():
             addr = self.ram[self.pc + 1]
             val = self.reg[addr]
             print(val)
-            return 2
+            self.pc += 2
 
         # Instruction mapping
         instructions = {
@@ -97,7 +97,6 @@ class CPU:
         # Execution loop
         while True:
             ir = self.ram[self.pc]
-            step = instructions[ir]()
-            if not step:
+            if instructions[ir]():
                 break
-            self.pc += step
+            
