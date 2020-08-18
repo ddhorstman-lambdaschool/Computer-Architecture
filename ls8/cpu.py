@@ -58,7 +58,7 @@ class CPU:
     def ram_write(self, addr, val):
         self.ram[addr] = val
 
-    def alu(self, op):
+    def alu(self, op, regA, regB):
         """ALU operations."""
 
         # Microcode
@@ -129,14 +129,11 @@ class CPU:
         }
 
         try:
-            # Extract register information
-            regA = self.ram[self.pc+1]
-            regB = self.ram[self.pc+2] if (op >> 6) > 1 else None
             # Perform the operation
             instructions[op]()
             # Truncate the A register to 8 bits
             self.reg[regA] &= 0xFF
-            
+
         except KeyError:
             print(f"Unsupported ALU operation: {hex(op)}")
             sys.exit(4)
@@ -177,26 +174,32 @@ class CPU:
         def IRET():
             pass
 
-        def JEQ():
-            pass
+        def JEQ():  # LGE
+            if self.fl & 0b001:
+                self.pc = self.ram[self.pc+1]
 
         def JGE():
-            pass
+            if ~(self.fl & 0b100):
+                self.pc = self.ram[self.pc+1]
 
         def JGT():
-            pass
+            if self.fl & 0b010:
+                self.pc = self.ram[self.pc+1]
 
         def JLE():
-            pass
+            if ~(self.fl & 0b010):
+                self.pc = self.ram[self.pc+1]
 
         def JLT():
-            pass
+            if self.fl & 0b100:
+                self.pc = self.ram[self.pc+1]
 
         def JMP():
             self.pc = self.ram[self.pc+1]
 
         def JNE():
-            pass
+            if ~(self.fl & 0b001):
+                self.pc = self.ram[self.pc+1]
 
         def LD():
             reg = self.ram[self.pc+1]
@@ -240,13 +243,13 @@ class CPU:
             0x01: HLT,
             # 0x52: INT,
             # 0x13: IRET,
-            # 0x55: JEQ,
-            # 0x5A: JGE,
-            # 0x57: JGT,
-            # 0x59: JLE,
-            # 0x58: JLT,
+            0x55: JEQ,
+            0x5A: JGE,
+            0x57: JGT,
+            0x59: JLE,
+            0x58: JLT,
             0x54: JMP,
-            # 0x56: JNE,
+            0x56: JNE,
             0x83: LD,
             0x82: LDI,
             0x00: NOP,
@@ -273,7 +276,9 @@ class CPU:
 
             # Execute ALU op
             else:
-                self.alu(ir)
+                regA = self.ram[self.pc+1]
+                regB = self.ram[self.pc+2] if (ir >> 6) > 1 else None
+                self.alu(ir, regA, regB)
 
             # If the HLT flag was set
             if self.fl & 0x80:
