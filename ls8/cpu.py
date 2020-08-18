@@ -235,7 +235,9 @@ class CPU:
             pass
 
         def ST():
-            pass
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            self.ram[self.reg[regA]] = self.reg[regB]
 
         # Instruction mapping
         instructions = {
@@ -258,7 +260,7 @@ class CPU:
             0x47: PRN,
             # 0x45: PUSH,
             # 0x11: RET,
-            # 0x84: ST,
+            0x84: ST,
         }
 
         # Execution loop
