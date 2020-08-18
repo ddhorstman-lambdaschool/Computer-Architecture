@@ -63,65 +63,51 @@ class CPU:
 
         # Microcode
         def ADD():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] += self.reg[regB]
 
         def AND():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] &= self.reg[regB]
 
         def CMP():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             a, b = self.reg[regA], self.reg[regB]
             cmp_bits = 0b100 if a < b else 0b010 if a > b else 0b001
             # Set CMP bits without altering others
             self.fl = (self.fl & 0b11111000) | cmp_bits
 
         def DEC():
-            reg = self.ram[self.pc+1]
-            self.reg[reg] -= 1
+            self.reg[regA] -= 1
 
         def DIV():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] //= self.reg[regB]
 
         def INC():
-            reg = self.ram[self.pc+1]
-            self.reg[reg] += 1
+            self.reg[regA] += 1
 
         def MOD():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             if self.reg[regB] == 0:
                 self.fl |= 0x80  # Set HLT flag
-                return
-            self.reg[regA] %= self.reg[regB]
+            else:
+                self.reg[regA] %= self.reg[regB]
 
         def MUL():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] *= self.reg[regB]
 
         def NOT():
-            reg = self.ram[self.pc+1]
-            self.reg[reg] = ~self.reg[reg]
+            self.reg[regA] = ~self.reg[regA]
 
         def OR():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] |= self.reg[regB]
 
         def SHL():
-            reg = self.ram[self.pc+1]
-            self.reg[reg] <<= self.reg[reg]
+            self.reg[regA] <<= self.reg[regB]
 
         def SHR():
-            reg = self.ram[self.pc+1]
-            self.reg[reg] >>= self.reg[reg]
+            self.reg[regA] >>= self.reg[regB]
 
         def SUB():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] -= self.reg[regB]
 
         def XOR():
-            regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             self.reg[regA] ^= self.reg[regB]
 
         # Instruction mapping
@@ -143,9 +129,14 @@ class CPU:
         }
 
         try:
+            # Extract register information
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2] if (op >> 6) > 1 else None
+            # Perform the operation
             instructions[op]()
             # Truncate the A register to 8 bits
-            self.reg[self.ram[self.pc + 1]] &= 0xFF
+            self.reg[regA] &= 0xFF
+            
         except KeyError:
             print(f"Unsupported ALU operation: {hex(op)}")
             sys.exit(4)
