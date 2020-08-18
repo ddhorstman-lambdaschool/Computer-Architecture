@@ -11,6 +11,7 @@ class CPU:
         self.ram = [0] * 256
         self.reg = [0] * 7 + [0xF4]
         self.pc = 0
+        self.fl = 0
 
     def load(self):
         """Load a program into memory."""
@@ -65,13 +66,11 @@ class CPU:
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] += self.reg[regB]
-            self.reg[regA] &= 0xFF
 
         def AND():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] &= self.reg[regB]
-            self.reg[regA] &= 0xFF
 
         def CMP():
             pass
@@ -89,26 +88,23 @@ class CPU:
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             if self.reg[regB] == 0:
-                return True
+                self.fl |= 0x80 # Set HLT flag
+                return
             self.reg[regA] %= self.reg[regB]
-            self.reg[regA] &= 0xFF
 
         def MUL():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] *= self.reg[regB]
-            self.reg[regA] &= 0xFF
 
         def NOT():
             reg = self.ram[self.pc+1]
             self.reg[reg] = ~self.reg[reg]
-            self.reg[regA] &= 0xFF
 
         def OR():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] |= self.reg[regB]
-            self.reg[regA] &= 0xFF
 
         def SHL():
             pass
@@ -141,10 +137,14 @@ class CPU:
         }
 
         try:
-            return instructions[op]()
+            instructions[op]()
+            # If the op mutated a register
+            #Truncate to 8 bits
+            if (op >> 6) > 0: 
+                self.reg[self.ram[self.pc+1]] &= 0xFF 
         except KeyError:
             print(f"Unsupported ALU operation: {hex(op)}")
-            return True  # This tells the CPU to halt
+            sys.exit(4)
 
     def trace(self):
         """
@@ -174,7 +174,7 @@ class CPU:
             pass
 
         def HLT():
-            return True
+            self.fl |= 0x80 # set HLT flag
 
         def INT():
             pass
@@ -271,19 +271,18 @@ class CPU:
             # Execute non-ALU op
             if ~(ir >> 5) & 1:
                 try:
-                    # Only HLT returns True
-                    if instructions[ir]():
-                        break
-                # Handle invalid ops
+                    instructions[ir]()
                 except KeyError:
                     print(f"Invalid opcode: {hex(ir)}")
                     sys.exit(4)
 
             # Execute ALU op
             else:
-                # Failed ops return True
-                if self.alu(ir):
-                    break
+                self.alu(ir)
+
+            # If the HLT flag was set
+            if self.fl & 0x80:
+                break
 
             # If the instruction doesn't set the PC
             if ~(ir >> 4) & 1:
