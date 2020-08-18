@@ -23,16 +23,16 @@ class CPU:
             print("Usage: python3 ls8.py <program_name>")
             sys.exit(1)
 
-        #Validate filetype and confirm file exists
+        # Validate filetype and confirm file exists
         if filename[-4:] != '.ls8':
             print("You must supply a '.ls8' binary.")
             sys.exit(2)
         try:
             f = open(filename)
         except FileNotFoundError:
-            print(f"Invalid filename: {filename}")
-            sys.exit(3)
-        
+            print(f"File not found: {filename}")
+            sys.exit(2)
+
         # Read the contents of the file
         address = 0
         for line in f:
@@ -42,9 +42,14 @@ class CPU:
                 continue
             if opcode == '#':
                 continue
-            self.ram[address] = int(opcode,2)
+            self.ram[address] = int(opcode, 2)
             address += 1
         f.close()
+
+        # Double-check the file wasn't empty
+        if address == 0:
+            print("Error: Empty source file")
+            sys.exit(2)
 
     def ram_read(self, addr):
         return self.ram[addr]
@@ -52,14 +57,26 @@ class CPU:
     def ram_write(self, addr, val):
         self.ram[addr] = val
 
-    def alu(self, op, reg_a, reg_b):
+    def alu(self, op):
         """ALU operations."""
 
-        if op == "ADD":
-            self.reg[reg_a] += self.reg[reg_b]
-        # elif op == "SUB": etc
-        else:
-            raise Exception("Unsupported ALU operation")
+        #Microcode
+        def MUL():
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            self.reg[regA] *= self.reg[regB]
+
+        # Instruction mapping
+        instructions = {
+            0x2: MUL
+        }
+        
+        # Execution
+        try:
+            instructions[op & 0xF]()
+        except KeyError:
+            print(f"Unsupported ALU operation: {hex(op)}")
+            sys.exit(4)
 
     def trace(self):
         """
@@ -85,6 +102,9 @@ class CPU:
         """Run the CPU."""
 
         # Microcode
+        def NOP():
+            pass
+
         def HLT():
             return True
 
@@ -103,22 +123,26 @@ class CPU:
 
         # Instruction mapping
         instructions = {
-            0x01: HLT,
-            0x82: LDI,
-            0x47: PRN,
-            0x54: JMP,
+            0x0: NOP,
+            0x1: HLT,
+            0x2: LDI,
+            0x4: JMP,
+             0x7: PRN,
         }
+
         # Execution loop
+        self.pc = 0
         while True:
             ir = self.ram[self.pc]
-            if ir not in instructions:
-                print(f"Invalid opcode: {hex(ir)}")
-                sys.exit(4)
             # If this is an ALU operation
             if (ir >> 5) & 1:
-                pass
+                self.alu(ir)
+            # Validate non-ALU opcode
+            elif ir & 0xF not in instructions:
+                print(f"Invalid opcode: {hex(ir)}")
+                sys.exit(4)
             # Execute non-ALU op - only HLT returns True
-            elif instructions[ir]():
+            elif instructions[ir & 0xF]():
                 break
             # If the instruction doesn't set the PC
             if not (ir >> 4) & 1:
