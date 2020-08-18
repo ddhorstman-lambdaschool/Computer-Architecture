@@ -61,6 +61,14 @@ class CPU:
         """ALU operations."""
 
         #Microcode
+        def ADD():
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            self.reg[regA] += self.reg[regB]
+        def AND():
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            self.reg[regA] ^= self.reg[regB]
         def MUL():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
@@ -68,11 +76,13 @@ class CPU:
 
         # Instruction mapping
         instructions = {
-            0x2: MUL
+            0x0: ADD,
+            0x2: MUL,
+            0x8: AND,
         }
-        
-        # Execution
+
         try:
+            # The instruction ID is the bottom nibble
             instructions[op & 0xF]()
         except KeyError:
             print(f"Unsupported ALU operation: {hex(op)}")
@@ -104,18 +114,14 @@ class CPU:
         # Microcode
         def NOP():
             pass
-
         def HLT():
             return True
-
-        def JMP():
-            self.pc = self.ram[self.pc+1]
-
         def LDI():
             addr = self.ram[self.pc + 1]
             val = self.ram[self.pc + 2]
             self.reg[addr] = val
-
+        def JMP():
+            self.pc = self.ram[self.pc+1]
         def PRN():
             addr = self.ram[self.pc + 1]
             val = self.reg[addr]
@@ -127,24 +133,32 @@ class CPU:
             0x1: HLT,
             0x2: LDI,
             0x4: JMP,
-             0x7: PRN,
+            0x7: PRN,
         }
 
         # Execution loop
         self.pc = 0
         while True:
             ir = self.ram[self.pc]
-            # If this is an ALU operation
-            if (ir >> 5) & 1:
+
+            # Execute non-ALU op
+            if not (ir >> 5) & 1:
+                try:
+                    # Instruction ID is the bottom nibble
+                    done = instructions[ir & 0xF]()
+                    # Only HLT returns True
+                    if done:
+                        break
+                # Handle invalid ops
+                except KeyError:
+                    print(f"Invalid opcode: {hex(ir)}")
+                    sys.exit(4)
+            
+            # Execute ALU op
+            else:
                 self.alu(ir)
-            # Validate non-ALU opcode
-            elif ir & 0xF not in instructions:
-                print(f"Invalid opcode: {hex(ir)}")
-                sys.exit(4)
-            # Execute non-ALU op - only HLT returns True
-            elif instructions[ir & 0xF]():
-                break
+        
             # If the instruction doesn't set the PC
             if not (ir >> 4) & 1:
-                # Increment the PC based on the number of operands
+                # Increment it based on the number of operands
                 self.pc += (ir >> 6) + 1
