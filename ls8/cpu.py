@@ -26,6 +26,8 @@ class CPU:
             0b00001000,
             0b01000111,  # PRN R0
             0b00000000,
+            0x54,
+            0,
             0b00000001,  # HLT
         ]
 
@@ -75,23 +77,24 @@ class CPU:
         def HLT():
             return True
 
+        def JMP():
+            self.pc = self.ram[self.pc+1]
         def LDI():
             addr = self.ram[self.pc + 1]
             val = self.ram[self.pc + 2]
             self.reg[addr] = val
-            self.pc += 3
 
         def PRN():
             addr = self.ram[self.pc + 1]
             val = self.reg[addr]
             print(val)
-            self.pc += 2
 
         # Instruction mapping
         instructions = {
             0x01: HLT,
             0x82: LDI,
             0x47: PRN,
+            0x54: JMP,
         }
         
         # Execution loop
@@ -99,4 +102,6 @@ class CPU:
             ir = self.ram[self.pc]
             if instructions[ir]():
                 break
+            if not (ir >>4)&1:
+                self.pc += (ir >> 6) + 1
             
