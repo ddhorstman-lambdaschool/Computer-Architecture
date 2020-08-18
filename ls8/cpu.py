@@ -73,9 +73,10 @@ class CPU:
         def CMP():
             regA, regB = self.ram[self.pc+1], self.ram[self.pc+2]
             a, b = self.reg[regA], self.reg[regB]
-            mask = 0b100 if a < b else 0b010 if a > b else 0b001
-            self.fl = mask
-            
+            cmp_bits = 0b100 if a < b else 0b010 if a > b else 0b001
+            # Set CMP bits without altering others
+            self.fl = (self.fl & 0b11111000) | cmp_bits
+
         def DEC():
             reg = self.ram[self.pc+1]
             self.reg[reg] -= 1
@@ -127,7 +128,7 @@ class CPU:
         instructions = {
             0xA0: ADD,
             0xA8: AND,
-            # 0xA7: CMP,
+            0xA7: CMP,
             0x66: DEC,
             0xA3: DIV,
             0x65: INC,
