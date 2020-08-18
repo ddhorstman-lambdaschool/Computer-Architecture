@@ -60,33 +60,85 @@ class CPU:
     def alu(self, op):
         """ALU operations."""
 
-        #Microcode
+        # Microcode
         def ADD():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] += self.reg[regB]
+
         def AND():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
-            self.reg[regA] ^= self.reg[regB]
+            self.reg[regA] &= self.reg[regB]
+
+        def CMP():
+            pass
+
+        def DEC():
+            pass
+
+        def DIV():
+            pass
+
+        def INC():
+            pass
+
+        def MOD():
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            if self.reg[regB] == 0:
+                return True
+            self.reg[regA] %= self.reg[regB]
+
         def MUL():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] *= self.reg[regB]
 
+        def NOT():
+            reg = self.ram[self.pc+1]
+            self.reg[reg] = ~self.reg[reg]
+
+        def OR():
+            regA = self.ram[self.pc+1]
+            regB = self.ram[self.pc+2]
+            self.reg[regA] |= self.reg[regB]
+
+        def SHL():
+            pass
+
+        def SHR():
+            pass
+
+        def SUB():
+            pass
+
+        def XOR():
+            pass
+
         # Instruction mapping
         instructions = {
-            0x0: ADD,
-            0x2: MUL,
-            0x8: AND,
+            0xA0: ADD,
+            0xA8: AND,
+            # 0xA7: CMP,
+            # 0x66: DEC,
+            # 0xA3: DIV,
+            # 0x65: INC,
+            0xA4: MOD,
+            0xA2: MUL,
+            0x69: NOT,
+            0xAA: OR,
+            # 0xAC: SHL,
+            # 0xAD: SHR,
+            # 0xA1: SUB,
+            # 0xAB: XOR,
         }
 
         try:
-            # The instruction ID is the bottom nibble
-            instructions[op & 0xF]()
+            return instructions[op]()
         except KeyError:
             print(f"Unsupported ALU operation: {hex(op)}")
-            sys.exit(4)
+            return True  # This tells the CPU to halt
 
     def trace(self):
         """
@@ -112,28 +164,97 @@ class CPU:
         """Run the CPU."""
 
         # Microcode
-        def NOP():
+        def CALL():
             pass
+
         def HLT():
             return True
+
+        def INT():
+            pass
+
+        def IRET():
+            pass
+
+        def JEQ():
+            pass
+
+        def JGE():
+            pass
+
+        def JGT():
+            pass
+
+        def JLE():
+            pass
+
+        def JLT():
+            pass
+
+        def JMP():
+            self.pc = self.ram[self.pc+1]
+
+        def JNE():
+            pass
+
+        def LD():
+            reg = self.ram[self.pc+1]
+            addr = self.reg[self.pc+2]
+            val = self.ram[addr]
+            self.reg[reg] = val
+
         def LDI():
             addr = self.ram[self.pc + 1]
             val = self.ram[self.pc + 2]
             self.reg[addr] = val
-        def JMP():
-            self.pc = self.ram[self.pc+1]
+
+        def NOP():
+            pass
+
+        def POP():
+            pass
+
+        def PRA():
+            addr = self.ram[self.pc+1]
+            val = self.reg[addr]
+            print(chr(val))
+
         def PRN():
             addr = self.ram[self.pc + 1]
             val = self.reg[addr]
             print(val)
 
+        def PUSH():
+            pass
+
+        def RET():
+            pass
+
+        def ST():
+            pass
+
         # Instruction mapping
         instructions = {
-            0x0: NOP,
-            0x1: HLT,
-            0x2: LDI,
-            0x4: JMP,
-            0x7: PRN,
+            0x50: CALL,
+            0x01: HLT,
+            # 0x52: INT,
+            # 0x13: IRET,
+            # 0x55: JEQ,
+            # 0x5A: JGE,
+            # 0x57: JGT,
+            # 0x59: JLE,
+            # 0x58: JLT,
+            0x54: JMP,
+            # 0x56: JNE,
+            0x83: LD,
+            0x82: LDI,
+            0x00: NOP,
+            # 0x46: POP,
+            0x48: PRA,
+            0x47: PRN,
+            # 0x45: PUSH,
+            # 0x11: RET,
+            # 0x84: ST,
         }
 
         # Execution loop
@@ -142,23 +263,23 @@ class CPU:
             ir = self.ram[self.pc]
 
             # Execute non-ALU op
-            if not (ir >> 5) & 1:
+            if ~(ir >> 5) & 1:
                 try:
-                    # Instruction ID is the bottom nibble
-                    done = instructions[ir & 0xF]()
                     # Only HLT returns True
-                    if done:
+                    if instructions[ir]():
                         break
                 # Handle invalid ops
                 except KeyError:
                     print(f"Invalid opcode: {hex(ir)}")
                     sys.exit(4)
-            
+
             # Execute ALU op
             else:
-                self.alu(ir)
-        
+                # Failed ops return True
+                if self.alu(ir):
+                    break
+
             # If the instruction doesn't set the PC
-            if not (ir >> 4) & 1:
+            if ~(ir >> 4) & 1:
                 # Increment it based on the number of operands
                 self.pc += (ir >> 6) + 1
