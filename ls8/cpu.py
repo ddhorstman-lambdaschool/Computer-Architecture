@@ -9,31 +9,42 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.ram = [0] * 256
-        self.reg = [0] * 8
+        self.reg = [0] * 7 + [0xF4]
         self.pc = 0
 
     def load(self):
         """Load a program into memory."""
 
+        # Extract filename from command line
+        try:
+            filename = sys.argv[1]
+            print(filename)
+        except IndexError:
+            print("Usage: python3 ls8.py <program_name>")
+            sys.exit(1)
+
+        #Validate filetype and confirm file exists
+        if filename[-4:] != '.ls8':
+            print("You must supply a '.ls8' binary.")
+            sys.exit(2)
+        try:
+            f = open(filename)
+        except FileNotFoundError:
+            print(f"Invalid filename: {filename}")
+            sys.exit(3)
+        
+        # Read the contents of the file
         address = 0
-
-        # For now, we've just hardcoded a program:
-
-        program = [
-            # From print8.ls8
-            0b10000010,  # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111,  # PRN R0
-            0b00000000,
-            0x54,
-            0,
-            0b00000001,  # HLT
-        ]
-
-        for instruction in program:
-            self.ram[address] = instruction
+        for line in f:
+            try:
+                opcode = line.split()[0]
+            except IndexError:
+                continue
+            if opcode == '#':
+                continue
+            self.ram[address] = int(opcode,2)
             address += 1
+        f.close()
 
     def ram_read(self, addr):
         return self.ram[addr]
@@ -79,6 +90,7 @@ class CPU:
 
         def JMP():
             self.pc = self.ram[self.pc+1]
+
         def LDI():
             addr = self.ram[self.pc + 1]
             val = self.ram[self.pc + 2]
@@ -96,12 +108,19 @@ class CPU:
             0x47: PRN,
             0x54: JMP,
         }
-        
         # Execution loop
         while True:
             ir = self.ram[self.pc]
-            if instructions[ir]():
+            if ir not in instructions:
+                print(f"Invalid opcode: {hex(ir)}")
+                sys.exit(4)
+            # If this is an ALU operation
+            if (ir >> 5) & 1:
+                pass
+            # Execute non-ALU op - only HLT returns True
+            elif instructions[ir]():
                 break
-            if not (ir >>4)&1:
+            # If the instruction doesn't set the PC
+            if not (ir >> 4) & 1:
+                # Increment the PC based on the number of operands
                 self.pc += (ir >> 6) + 1
-            
