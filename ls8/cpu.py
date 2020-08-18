@@ -65,11 +65,13 @@ class CPU:
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] += self.reg[regB]
+            self.reg[regA] &= 0xFF
 
         def AND():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] &= self.reg[regB]
+            self.reg[regA] &= 0xFF
 
         def CMP():
             pass
@@ -89,20 +91,24 @@ class CPU:
             if self.reg[regB] == 0:
                 return True
             self.reg[regA] %= self.reg[regB]
+            self.reg[regA] &= 0xFF
 
         def MUL():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] *= self.reg[regB]
+            self.reg[regA] &= 0xFF
 
         def NOT():
             reg = self.ram[self.pc+1]
             self.reg[reg] = ~self.reg[reg]
+            self.reg[regA] &= 0xFF
 
         def OR():
             regA = self.ram[self.pc+1]
             regB = self.ram[self.pc+2]
             self.reg[regA] |= self.reg[regB]
+            self.reg[regA] &= 0xFF
 
         def SHL():
             pass
