@@ -136,7 +136,7 @@ class CPU:
 
         except KeyError:
             print(f"Invalid ALU operation: {hex(op)}")
-            self.fl |= 0x80 # Set HLT flag
+            self.fl |= 0x80  # Set HLT flag
 
     def trace(self):
         """
@@ -160,8 +160,9 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-
+        SP = 7
         # Microcode
+
         def CALL():
             pass
 
@@ -216,10 +217,10 @@ class CPU:
             pass
 
         def POP():
-            val = self.ram[self.reg[7]]
+            val = self.ram[self.reg[SP]]
             reg = self.ram[self.pc+1]
             self.reg[reg] = val
-            self.reg[7] += 1
+            self.reg[SP] = (self.reg[SP]+1) & 0xFF
 
         def PRA():
             addr = self.ram[self.pc+1]
@@ -232,9 +233,9 @@ class CPU:
             print(val)
 
         def PUSH():
-            self.reg[7] -=1
+            self.reg[SP] = (self.reg[SP]-1) & 0xFF
             val = self.reg[self.ram[self.pc+1]]
-            addr = self.reg[7]
+            addr = self.reg[SP]
             self.ram[addr] = val
 
         def RET():
@@ -280,7 +281,7 @@ class CPU:
                     instructions[ir]()
                 except KeyError:
                     print(f"Invalid operation: {hex(ir)}")
-                    self.fl |= 0x80 # Set HLT flag
+                    self.fl |= 0x80  # Set HLT flag
 
             # Execute ALU op
             else:
@@ -289,7 +290,7 @@ class CPU:
                 self.alu(ir, regA, regB)
 
             # If the HLT flag was set
-            if self.fl & 0x80:
+            if self.fl >> 7:
                 break
 
             # If the instruction doesn't set the PC
