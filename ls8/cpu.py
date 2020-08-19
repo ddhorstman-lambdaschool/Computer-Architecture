@@ -135,8 +135,8 @@ class CPU:
             self.reg[regA] &= 0xFF
 
         except KeyError:
-            print(f"Unsupported ALU operation: {hex(op)}")
-            sys.exit(4)
+            print(f"Invalid ALU operation: {hex(op)}")
+            self.fl |= 0x80 # Set HLT flag
 
     def trace(self):
         """
@@ -216,7 +216,10 @@ class CPU:
             pass
 
         def POP():
-            pass
+            val = self.ram[self.reg[7]]
+            reg = self.ram[self.pc+1]
+            self.reg[reg] = val
+            self.reg[7] += 1
 
         def PRA():
             addr = self.ram[self.pc+1]
@@ -229,7 +232,10 @@ class CPU:
             print(val)
 
         def PUSH():
-            pass
+            self.reg[7] -=1
+            val = self.reg[self.ram[self.pc+1]]
+            addr = self.reg[7]
+            self.ram[addr] = val
 
         def RET():
             pass
@@ -241,7 +247,7 @@ class CPU:
 
         # Instruction mapping
         instructions = {
-            0x50: CALL,
+            # 0x50: CALL,
             0x01: HLT,
             # 0x52: INT,
             # 0x13: IRET,
@@ -255,10 +261,10 @@ class CPU:
             0x83: LD,
             0x82: LDI,
             0x00: NOP,
-            # 0x46: POP,
+            0x46: POP,
             0x48: PRA,
             0x47: PRN,
-            # 0x45: PUSH,
+            0x45: PUSH,
             # 0x11: RET,
             0x84: ST,
         }
@@ -273,8 +279,8 @@ class CPU:
                 try:
                     instructions[ir]()
                 except KeyError:
-                    print(f"Invalid opcode: {hex(ir)}")
-                    sys.exit(4)
+                    print(f"Invalid operation: {hex(ir)}")
+                    self.fl |= 0x80 # Set HLT flag
 
             # Execute ALU op
             else:
