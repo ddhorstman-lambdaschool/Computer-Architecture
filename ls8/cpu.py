@@ -162,9 +162,10 @@ class CPU:
         """Run the CPU."""
         SP = 7
         # Microcode
-
         def CALL():
-            pass
+            PUSH(self.pc+2)
+            reg = self.ram[self.pc+1]
+            self.pc = self.reg[reg]
 
         def HLT():
             self.fl |= 0x80  # set HLT flag
@@ -178,22 +179,32 @@ class CPU:
         def JEQ():  # LGE
             if self.fl & 0b001:
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def JGE():
             if ~(self.fl & 0b100):
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def JGT():
             if self.fl & 0b010:
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def JLE():
             if ~(self.fl & 0b010):
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def JLT():
             if self.fl & 0b100:
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def JMP():
             self.pc = self.ram[self.pc+1]
@@ -201,6 +212,8 @@ class CPU:
         def JNE():
             if ~(self.fl & 0b001):
                 self.pc = self.ram[self.pc+1]
+            else:
+                self.pc += 2
 
         def LD():
             reg = self.ram[self.pc+1]
@@ -232,14 +245,15 @@ class CPU:
             val = self.reg[addr]
             print(val)
 
-        def PUSH():
+        def PUSH(val = None):
             self.reg[SP] = (self.reg[SP]-1) & 0xFF
-            val = self.reg[self.ram[self.pc+1]]
+            val = val or self.reg[self.ram[self.pc+1]]
             addr = self.reg[SP]
             self.ram[addr] = val
 
         def RET():
-            pass
+            self.pc = self.ram[self.reg[SP]]
+            self.reg[SP] = (self.reg[SP]+1) & 0xFF
 
         def ST():
             regA = self.ram[self.pc+1]
@@ -248,7 +262,7 @@ class CPU:
 
         # Instruction mapping
         instructions = {
-            # 0x50: CALL,
+            0x50: CALL,
             0x01: HLT,
             # 0x52: INT,
             # 0x13: IRET,
@@ -266,7 +280,7 @@ class CPU:
             0x48: PRA,
             0x47: PRN,
             0x45: PUSH,
-            # 0x11: RET,
+            0x11: RET,
             0x84: ST,
         }
 
@@ -297,3 +311,9 @@ class CPU:
             if ~(ir >> 4) & 1:
                 # Increment it based on the number of operands
                 self.pc += (ir >> 6) + 1
+
+if __name__ == "__main__":
+    cpu = CPU()
+
+    cpu.load()
+    cpu.run()
