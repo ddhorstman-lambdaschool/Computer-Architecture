@@ -190,10 +190,20 @@ class CPU:
 
         def Interrupt(n):
             print("Interrupt triggered, number", n)
-            self.reg[IS] = 0
+            # Clear the given interrupt
+            mask = 0xFF ^ (1 << n)
+            self.reg[IS] &= mask
+            # Push machine state onto the stack
+            PUSH(self.pc)
+            PUSH(self.fl)
+            for i in range(7):
+                PUSH(self.reg[i])
+            # Set program counter to interrupt vector
+            self.pc = self.ram[0xF8 + n]
+            
 
         def IRET():
-            pass
+            HLT()
 
         def JEQ():  # LGE
             if self.fl & 0b001:
@@ -248,10 +258,10 @@ class CPU:
         def NOP():
             pass
 
-        def POP(return_=False, reg=None):
+        def POP(return_=False):
             val = self.ram[self.reg[SP]]
             if not return_:
-                reg = reg or self.ram[self.pc+1]
+                reg =self.ram[self.pc+1]
                 self.reg[reg] = val
             self.reg[SP] = (self.reg[SP]+1) & 0xFF
             if return_:
@@ -318,11 +328,10 @@ class CPU:
             if self.reg[IS]:
                 maskedInterrupts = self.reg[IM] & self.reg[IS]
                 for i in range(8):
-                    print(bin(maskedInterrupts))
-                    if maskedInterrupts & 1:
+                    if (maskedInterrupts >> i) & 1:
                         Interrupt(i)
-                    else:
-                        maskedInterrupts //= 2
+                        break
+                    
 
             ir = self.ram[self.pc]
 
