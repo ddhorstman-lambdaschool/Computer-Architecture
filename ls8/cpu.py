@@ -16,11 +16,10 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256  # RAM
         self.reg = [0] * 8    # General-purpose registers
-        self.reg[IM] = 0xFF   # Interrupt Mask
+        # self.reg[IM] = 0xFF   # Interrupt Mask
         self.reg[SP] = 0xF4   # Stack Pointer
         self.pc = 0           # Program Counter
         self.fl = 0           # Flags Register
-
 
     def load(self):
         """Load a program into memory."""
@@ -43,11 +42,11 @@ class CPU:
             print(f"File not found: {filename}")
             sys.exit(2)
 
-        # Set all interrupt vectors to 0xF7
-        for i in range(0xF8,0x100):
-            self.ram[i] = 0xF7
-        # Store a program to immediately return in 0xF7
-        self.ram[0xF7] = 0x13 # IRET
+        # # Set all interrupt vectors to 0xF7
+        # for i in range(0xF8, 0x100):
+        #     self.ram[i] = 0xF7
+        # # Store a program to immediately return in 0xF7
+        # self.ram[0xF7] = 0x13  # IRET
 
         # Read the contents of the file
         address = 0
@@ -189,21 +188,31 @@ class CPU:
             self.reg[IS] |= 1 << n
 
         def Interrupt(n):
-            print("Interrupt triggered, number", n)
             # Clear the given interrupt
             mask = 0xFF ^ (1 << n)
             self.reg[IS] &= mask
             # Push machine state onto the stack
             PUSH(self.pc)
+            # print(f"Pushing PC:", self.pc)
             PUSH(self.fl)
+            # print("Pushing Flags:", self.fl)
             for i in range(7):
+                # print(f"Pushing R{i}:{bin(self.reg[i])}")
                 PUSH(self.reg[i])
             # Set program counter to interrupt vector
             self.pc = self.ram[0xF8 + n]
-            
+            # Disable Interrupts
+            self.reg[IM] = 0x00
 
         def IRET():
-            HLT()
+            # Pop machine state off of stack
+            for i in range(7):
+                self.reg[6-i] = POP(return_=True)
+                # print(f"Popping R{6-i}:{bin(self.reg[6-i])}")
+            self.fl = POP(True)
+            # print("Popping Flags:",self.fl)
+            self.pc = POP(True)
+            # print("Popping PC:", self.pc)
 
         def JEQ():  # LGE
             if self.fl & 0b001:
@@ -325,12 +334,13 @@ class CPU:
                 last_interrupt = time()
 
             # Handle Interrupts
-            if self.reg[IS]:
-                maskedInterrupts = self.reg[IM] & self.reg[IS]
+            maskedInterrupts = self.reg[IM] & self.reg[IS]
+            if maskedInterrupts:
                 for i in range(8):
-                    if (maskedInterrupts >> i) & 1:
+                    if maskedInterrupts & 1:
                         Interrupt(i)
                         break
+                    maskedInterrupts >>= 1
                     
 
             ir = self.ram[self.pc]
