@@ -1,6 +1,12 @@
 """CPU functionality."""
 
 import sys
+from time import time
+
+# Reserved registers
+IM = 5
+IS = 6
+SP = 7
 
 
 class CPU:
@@ -8,10 +14,13 @@ class CPU:
 
     def __init__(self):
         """Construct a new CPU."""
-        self.ram = [0] * 256
-        self.reg = [0] * 7 + [0xF4]
-        self.pc = 0
-        self.fl = 0
+        self.ram = [0] * 256  # RAM
+        self.reg = [0] * 8    # General-purpose registers
+        self.reg[IM] = 0xFF   # Interrupt Mask
+        self.reg[SP] = 0xF4   # Stack Pointer
+        self.pc = 0           # Program Counter
+        self.fl = 0           # Flags Register
+
 
     def load(self):
         """Load a program into memory."""
@@ -33,6 +42,12 @@ class CPU:
         except FileNotFoundError:
             print(f"File not found: {filename}")
             sys.exit(2)
+
+        # Set all interrupt vectors to 0xF7
+        for i in range(0xF8,0x100):
+            self.ram[i] = 0xF7
+        # Store a program to immediately return in 0xF7
+        self.ram[0xF7] = 0x13 # IRET
 
         # Read the contents of the file
         address = 0
@@ -160,18 +175,22 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        SP = 7
         # Microcode
-        def CALL():
+
+        def CALL(dest=None):
             PUSH(self.pc+2)
-            reg = self.ram[self.pc+1]
-            self.pc = self.reg[reg]
+            self.pc = dest or self.reg[self.ram[self.pc+1]]
 
         def HLT():
             self.fl |= 0x80  # set HLT flag
 
         def INT():
-            pass
+            n = self.reg[self.ram[self.pc+1]]
+            self.reg[IS] |= 1 << n
+
+        def Interrupt(n):
+            print("Interrupt triggered, number", n)
+            self.reg[IS] = 0
 
         def IRET():
             pass
@@ -229,11 +248,14 @@ class CPU:
         def NOP():
             pass
 
-        def POP():
+        def POP(return_=False, reg=None):
             val = self.ram[self.reg[SP]]
-            reg = self.ram[self.pc+1]
-            self.reg[reg] = val
+            if not return_:
+                reg = reg or self.ram[self.pc+1]
+                self.reg[reg] = val
             self.reg[SP] = (self.reg[SP]+1) & 0xFF
+            if return_:
+                return val
 
         def PRA():
             addr = self.ram[self.pc+1]
@@ -245,15 +267,14 @@ class CPU:
             val = self.reg[addr]
             print(val)
 
-        def PUSH(val = None):
+        def PUSH(val=None):
             self.reg[SP] = (self.reg[SP]-1) & 0xFF
             val = val or self.reg[self.ram[self.pc+1]]
             addr = self.reg[SP]
             self.ram[addr] = val
 
         def RET():
-            self.pc = self.ram[self.reg[SP]]
-            self.reg[SP] = (self.reg[SP]+1) & 0xFF
+            self.pc = POP(return_=True)
 
         def ST():
             regA = self.ram[self.pc+1]
@@ -264,8 +285,8 @@ class CPU:
         instructions = {
             0x50: CALL,
             0x01: HLT,
-            # 0x52: INT,
-            # 0x13: IRET,
+            0x52: INT,
+            0x13: IRET,
             0x55: JEQ,
             0x5A: JGE,
             0x57: JGT,
@@ -286,7 +307,23 @@ class CPU:
 
         # Execution loop
         self.pc = 0
+        last_interrupt = time()
         while True:
+            # Trigger time-based interrupt every second
+            if time() - last_interrupt > 1:
+                self.reg[IS] |= 1
+                last_interrupt = time()
+
+            # Handle Interrupts
+            if self.reg[IS]:
+                maskedInterrupts = self.reg[IM] & self.reg[IS]
+                for i in range(8):
+                    print(bin(maskedInterrupts))
+                    if maskedInterrupts & 1:
+                        Interrupt(i)
+                    else:
+                        maskedInterrupts //= 2
+
             ir = self.ram[self.pc]
 
             # Execute non-ALU op
@@ -294,7 +331,7 @@ class CPU:
                 try:
                     instructions[ir]()
                 except KeyError:
-                    print(f"Invalid operation: {hex(ir)}")
+                    print(f"Invalid operation at {hex(self.pc)}:{hex(ir)}")
                     self.fl |= 0x80  # Set HLT flag
 
             # Execute ALU op
@@ -311,6 +348,7 @@ class CPU:
             if ~(ir >> 4) & 1:
                 # Increment it based on the number of operands
                 self.pc += (ir >> 6) + 1
+
 
 if __name__ == "__main__":
     cpu = CPU()
