@@ -2,6 +2,7 @@
 
 import sys
 from time import time
+from pynput import keyboard
 
 # Reserved registers
 IM = 5
@@ -16,7 +17,6 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256  # RAM
         self.reg = [0] * 8    # General-purpose registers
-        # self.reg[IM] = 0xFF   # Interrupt Mask
         self.reg[SP] = 0xF4   # Stack Pointer
         self.pc = 0           # Program Counter
         self.fl = 0           # Flags Register
@@ -41,12 +41,6 @@ class CPU:
         except FileNotFoundError:
             print(f"File not found: {filename}")
             sys.exit(2)
-
-        # # Set all interrupt vectors to 0xF7
-        # for i in range(0xF8, 0x100):
-        #     self.ram[i] = 0xF7
-        # # Store a program to immediately return in 0xF7
-        # self.ram[0xF7] = 0x13  # IRET
 
         # Read the contents of the file
         address = 0
@@ -176,9 +170,9 @@ class CPU:
         """Run the CPU."""
         # Microcode
 
-        def CALL(dest=None):
+        def CALL():
             PUSH(self.pc+2)
-            self.pc = dest or self.reg[self.ram[self.pc+1]]
+            self.pc = self.reg[self.ram[self.pc+1]]
 
         def HLT():
             self.fl |= 0x80  # set HLT flag
@@ -193,28 +187,21 @@ class CPU:
             self.reg[IS] &= mask
             # Push machine state onto the stack
             PUSH(self.pc)
-            # print(f"Pushing PC:", self.pc)
             PUSH(self.fl)
-            # print("Pushing Flags:", self.fl)
             for i in range(7):
-                # print(f"Pushing R{i}:{bin(self.reg[i])}")
                 PUSH(self.reg[i])
             # Set program counter to interrupt vector
             self.pc = self.ram[0xF8 + n]
             # Disable Interrupts
             self.reg[IM] = 0x00
-            # for val in [f"{0xf3-addr}:{bin(val)}\n" for addr,val in enumerate(self.ram) if 225<addr <255]:
-            #     print(val)
+ 
 
         def IRET():
             # Pop machine state off of stack
             for i in range(7):
                 self.reg[6-i] = POP(return_=True)
-                # print(f"Popping R{6-i}:{bin(self.reg[6-i])}")
             self.fl = POP(True)
-            # print("Popping Flags:",self.fl)
             self.pc = POP(True)
-            # print("Popping PC:", self.pc)
 
         def JEQ():  # LGE
             if self.fl & 0b001:
@@ -271,10 +258,13 @@ class CPU:
 
         def POP(return_=False):
             val = self.ram[self.reg[SP]]
+            # If called by the CPU, extract operand
             if not return_:
                 reg =self.ram[self.pc+1]
                 self.reg[reg] = val
+            # Increment stack pointer
             self.reg[SP] = (self.reg[SP]+1) & 0xFF
+            # If called by another function, return popped value
             if return_:
                 return val
 
@@ -289,11 +279,12 @@ class CPU:
             print(val)
 
         def PUSH(val=None):
+            # Decrement stack pointer
             self.reg[SP] = (self.reg[SP]-1) & 0xFF
+            # If called by the CPU, extract operand
             if val is None:
                 val = self.reg[self.ram[self.pc+1]]
-            addr = self.reg[SP]
-            self.ram[addr] = val
+            self.ram[self.reg[SP]] = val
 
         def RET():
             self.pc = POP(return_=True)
@@ -327,15 +318,17 @@ class CPU:
             0x84: ST,
         }
 
+        
+        # Configure Interrupts
+        last_interrupt = time()
         # Execution loop
         self.pc = 0
-        last_interrupt = time()
         while True:
             # Trigger time-based interrupt every second
-            if time() - last_interrupt > 3:
-                print("Setting time interrupt")
+            if time() - last_interrupt > 1:
                 self.reg[IS] |= 1
                 last_interrupt = time()
+            # Trigger keyboard interrupt
 
             # Handle Interrupts
             maskedInterrupts = self.reg[IM] & self.reg[IS]
