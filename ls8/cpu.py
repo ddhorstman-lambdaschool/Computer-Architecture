@@ -203,6 +203,8 @@ class CPU:
             self.pc = self.ram[0xF8 + n]
             # Disable Interrupts
             self.reg[IM] = 0x00
+            # for val in [f"{0xf3-addr}:{bin(val)}\n" for addr,val in enumerate(self.ram) if 225<addr <255]:
+            #     print(val)
 
         def IRET():
             # Pop machine state off of stack
@@ -288,7 +290,8 @@ class CPU:
 
         def PUSH(val=None):
             self.reg[SP] = (self.reg[SP]-1) & 0xFF
-            val = val or self.reg[self.ram[self.pc+1]]
+            if val is None:
+                val = self.reg[self.ram[self.pc+1]]
             addr = self.reg[SP]
             self.ram[addr] = val
 
@@ -329,7 +332,8 @@ class CPU:
         last_interrupt = time()
         while True:
             # Trigger time-based interrupt every second
-            if time() - last_interrupt > 1:
+            if time() - last_interrupt > 3:
+                print("Setting time interrupt")
                 self.reg[IS] |= 1
                 last_interrupt = time()
 
