@@ -2,7 +2,6 @@
 
 import sys
 from time import time
-from pynput import keyboard
 
 # Reserved registers
 IM = 5
@@ -194,7 +193,6 @@ class CPU:
             self.pc = self.ram[0xF8 + n]
             # Disable Interrupts
             self.reg[IM] = 0x00
- 
 
         def IRET():
             # Pop machine state off of stack
@@ -203,44 +201,32 @@ class CPU:
             self.fl = POP(True)
             self.pc = POP(True)
 
-        def JEQ():  # LGE
-            if self.fl & 0b001:
-                self.pc = self.ram[self.pc+1]
+        def Jump(condition=True):
+            if condition:
+                self.pc = self.reg[self.ram[self.pc+1]]
             else:
                 self.pc += 2
+
+        def JEQ():  # LGE
+            Jump(self.fl & 0b1)
 
         def JGE():
-            if ~(self.fl & 0b100):
-                self.pc = self.ram[self.pc+1]
-            else:
-                self.pc += 2
+            Jump(not self.fl & 0b100)
 
         def JGT():
-            if self.fl & 0b010:
-                self.pc = self.ram[self.pc+1]
-            else:
-                self.pc += 2
+            Jump(self.fl & 0b10)
 
         def JLE():
-            if ~(self.fl & 0b010):
-                self.pc = self.ram[self.pc+1]
-            else:
-                self.pc += 2
+            Jump(not self.fl & 0b10)
 
         def JLT():
-            if self.fl & 0b100:
-                self.pc = self.ram[self.pc+1]
-            else:
-                self.pc += 2
+            Jump(self.fl & 0b100)
 
         def JMP():
-            self.pc = self.ram[self.pc+1]
+            Jump(True)
 
         def JNE():
-            if ~(self.fl & 0b001):
-                self.pc = self.ram[self.pc+1]
-            else:
-                self.pc += 2
+            Jump(not self.fl & 0b1)
 
         def LD():
             reg = self.ram[self.pc+1]
@@ -260,7 +246,7 @@ class CPU:
             val = self.ram[self.reg[SP]]
             # If called by the CPU, extract operand
             if not return_:
-                reg =self.ram[self.pc+1]
+                reg = self.ram[self.pc+1]
                 self.reg[reg] = val
             # Increment stack pointer
             self.reg[SP] = (self.reg[SP]+1) & 0xFF
@@ -318,7 +304,6 @@ class CPU:
             0x84: ST,
         }
 
-        
         # Configure Interrupts
         last_interrupt = time()
         # Execution loop
@@ -338,7 +323,6 @@ class CPU:
                         Interrupt(i)
                         break
                     maskedInterrupts >>= 1
-                    
 
             ir = self.ram[self.pc]
 
@@ -347,7 +331,7 @@ class CPU:
                 try:
                     instructions[ir]()
                 except KeyError:
-                    print(f"Invalid operation at {hex(self.pc)}:{hex(ir)}")
+                    print(f"Invalid operation at {self.pc}:{hex(ir)}")
                     self.fl |= 0x80  # Set HLT flag
 
             # Execute ALU op
