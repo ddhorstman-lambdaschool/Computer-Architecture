@@ -223,7 +223,7 @@ class CPU:
             Jump(self.fl & 0b100)
 
         def JMP():
-            Jump(True)
+            Jump()
 
         def JNE():
             Jump(not self.fl & 0b1)
